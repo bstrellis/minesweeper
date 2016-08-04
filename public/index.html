@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Minesweeper</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.1.0/react.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.1.0/react-dom.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.6.16/browser.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
+  </head>
+  <body>
+    <div id="content"></div>
+    <script type="text/babel">
+      var MINEFIELD_ROWS = 20;
+      var MINEFIELD_COLUMNS = 35;
+      var MINE_DIMENSIONS = 25;
+      var PERCENT_BOMBS = 0.2;
+
+      var GameBox = React.createClass({
+        getInitialState: function () {
+          return {
+            revealBombs: false,
+            gameNumber: 1,
+            runTimer: false
+          };
+        },
+
+        onBombClick: function () {
+          this.setState({
+            revealBombs: true,
+            runTimer: false
+          });
+        },
+
+        resetGame: function () {
+          this.setState({
+            revealBombs: false,
+            gameNumber: this.state.gameNumber + 1,
+            runTimer: false
+          });
+        },
+
+        startTimer: function () {
+          if (!this.state.runTimer && !this.state.revealBombs) {
+            this.setState({ runTimer: true });
+          };
+        },
+
+        render: function () {
+          return (
+            <div className="gamebox">
+              <Header key={'header-' + this.state.gameNumber}
+                      resetGame={this.resetGame}
+                      runTimer={this.state.runTimer}/>
+              <Minefield key={'minefield-' + this.state.gameNumber}
+                         onBombClick={this.onBombClick}
+                         revealBombs={this.state.revealBombs}
+                         startTimer={this.startTimer}/>
+            </div>
+          );
+        }
+      });
+
+      var Header = React.createClass({
+        render: function () {
+          return (
+            <div className="header">
+              <FlagCounter />
+              <ResetButton resetGame={this.props.resetGame}/>
+              <Timer running={this.props.runTimer} />
+            </div>
+          );
+        }
+      });
+
+      var FlagCounter = React.createClass({
+        // not yet implemented
+        render: function () {
+          return (
+            <div className="flag-counter header-feature">
+              FlagCounter
+            </div>
+          );
+        }
+      });
+
+      var ResetButton = React.createClass({
+        render: function () {
+          return (
+            <div className="reset-button header-feature" onClick={this.props.resetGame}>
+              Reset
+            </div>
+          );
+        }
+      });
+
+      var Timer = React.createClass({
+        getInitialState: function () {
+          return { elapsed: 0 };
+        },
+
+        componentDidMount: function () {
+          var timer = setInterval(this.advanceTime, 1000);
+          return timer;
+        },
+
+        componentWillUnmount: function (timer) {
+          clearInterval(timer);
+        },
+
+        advanceTime: function () {
+          if (this.props.running) {
+            this.setState({ elapsed: this.state.elapsed + 1 });
+          }
+        },
+
+        render: function () {
+          return (
+            <div className="timer header-feature">
+              {this.state.elapsed}
+            </div>
+          );
+        }
+      });
+
+      var Minefield = React.createClass({
+        getInitialState: function () {
+          return {
+            bombXYCoords: this.getBombXYCoords()
+          };
+        },
+
+        getBombXYCoords: function () {
+          var bombXYCoords = [];
+          for (var h = 0; h < MINEFIELD_ROWS; h++) {
+            bombXYCoords.push([]);
+            continue;
+          }
+
+          for (var i = 0; i < MINEFIELD_ROWS; i++) {
+            for (var k = 0; k < MINEFIELD_COLUMNS; k++) {
+              bombXYCoords[i][k] = { isBomb: Math.random() < PERCENT_BOMBS };
+            }
+          }
+          return bombXYCoords;
+        },
+
+        getXYMineData: function (bombXYCoords) {
+          for (var i = 0; i < MINEFIELD_ROWS; i++) {
+            for (var k = 0; k < MINEFIELD_COLUMNS; k++) {
+              var numAdjacentBombs = 0;
+              var prevRow = bombXYCoords[i - 1];
+              var nextRow = bombXYCoords[i + 1];
+              var mineToLeft = bombXYCoords[i][k - 1];
+              var mineToRight = bombXYCoords[i][k + 1];
+
+              if (prevRow && prevRow[k - 1] && prevRow[k - 1].isBomb) {
+                numAdjacentBombs++;
+              }
+              if (prevRow && prevRow[k] && prevRow[k].isBomb) {
+                numAdjacentBombs++;
+              }
+              if (prevRow && prevRow[k + 1] && prevRow[k + 1].isBomb) {
+                numAdjacentBombs++;
+              }
+              if (mineToLeft && mineToLeft.isBomb) {
+                numAdjacentBombs++;
+              }
+              if (mineToRight && mineToRight.isBomb) {
+                numAdjacentBombs++;
+              }
+              if (nextRow && nextRow[k - 1] && nextRow[k - 1].isBomb) {
+                numAdjacentBombs++;
+              }
+              if (nextRow && nextRow[k] && nextRow[k].isBomb) {
+                numAdjacentBombs++;
+              }
+              if (nextRow && nextRow[k + 1] && nextRow[k + 1].isBomb) {
+                numAdjacentBombs++;
+              }
+
+              bombXYCoords[i][k].numAdjacentBombs = numAdjacentBombs;
+            }
+          }
+          return bombXYCoords;
+        },
+
+        createMineArray: function () {
+          var bombXYCoords = this.state.bombXYCoords;
+          var xYMineData = this.getXYMineData(bombXYCoords);
+          var mineArray = [];
+          for (var i = 0; i < MINEFIELD_ROWS; i++) {
+            for (var k = 0; k < MINEFIELD_COLUMNS; k++) {
+              var isBomb = xYMineData[i][k].isBomb;
+              mineArray.push(
+                <Mine key={(i * xYMineData[0].length) + k}
+                      numAdjacentBombs={xYMineData[i][k].numAdjacentBombs}
+                      onBombClick={this.props.onBombClick}
+                      isBomb={isBomb}
+                      revealIfBomb={this.props.revealBombs}
+                      startTimer={this.props.startTimer}/>
+              );
+            }
+          }
+
+          return mineArray;
+        },
+
+        render: function () {
+          var mineArray = this.createMineArray();
+          var minefieldStyles = {
+            width: MINEFIELD_COLUMNS * MINE_DIMENSIONS,
+            height: MINEFIELD_ROWS * MINE_DIMENSIONS
+          };
+
+          return (
+            <div style={minefieldStyles}
+                 className="minefield">
+              {mineArray}
+            </div>
+          );
+        }
+      });
+
+      var Mine = React.createClass({
+        handleClick: function () {
+          if (this.props.isBomb) {
+            this.setState({ bombWasClicked: true });
+            this.props.onBombClick();
+          } else {
+            this.props.startTimer();
+            if (!this.props.revealIfBomb) {
+              this.setState({ mineWasClicked: true });
+            }
+          }
+        },
+
+        getMineText: function () {
+          if (this.state &&
+              this.state.mineWasClicked) {
+            return this.props.numAdjacentBombs;
+          }
+
+          return '';
+        },
+
+        render: function () {
+          var classes = 'mine';
+          if (this.props.isBomb &&
+              ((this.state && this.state.bombWasClicked) || this.props.revealIfBomb)) {
+              //  if a bomb is clicked
+              //  all bombs have to change state to revealBombs
+            classes += ' bomb--is-clicked';
+          }
+          if (this.state &&
+              this.state.mineWasClicked) {
+            classes += ' mine--is-clicked';
+          }
+
+          var mineStyles = {
+            width: MINE_DIMENSIONS,
+            height: MINE_DIMENSIONS
+          };
+
+          return (
+            <div className={classes}
+                 onClick={this.handleClick}
+                 style={mineStyles}>
+              {this.getMineText()}
+            </div>
+          );
+        }
+      });
+
+      ReactDOM.render(
+        <GameBox />,
+        document.getElementById('content')
+      );
+    </script>
+  </body>
+</html>
